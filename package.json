@@ -1232,6 +1232,8 @@
     "moltbot:rpc": "node scripts/run-node.mjs agent --mode rpc --json",
     "openclaw": "node scripts/run-node.mjs",
     "openclaw:rpc": "node scripts/run-node.mjs agent --mode rpc --json",
+    "package:build": "pnpm check && pnpm prepack && pnpm release:check && mkdir -p release-packages && npm pack --ignore-scripts --pack-destination ./release-packages",
+    "package:install": "npm install -g ./release-packages/openclaw-$(node -p \"require('./package.json').version\").tgz",
     "plugin-sdk:api:check": "node --import tsx scripts/generate-plugin-sdk-api-baseline.ts --check",
     "plugin-sdk:api:gen": "node --import tsx scripts/generate-plugin-sdk-api-baseline.ts --write",
     "plugin-sdk:check-exports": "node scripts/sync-plugin-sdk-exports.mjs --check",

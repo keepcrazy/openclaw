@@ -1,8 +1,17 @@
 import type { OpenClawConfig } from "openclaw/plugin-sdk/provider-onboard";
 import { describe, expect, it } from "vitest";
-import { applyOpenAIConfig, applyOpenAIProviderConfig, OPENAI_DEFAULT_MODEL } from "./api.js";
+import {
+  applyOpenAIConfig,
+  applyOpenAIProviderConfig,
+  OPENAI_CODEX_DEFAULT_MODEL,
+  OPENAI_DEFAULT_MODEL,
+} from "./api.js";
 
 describe("openai default models", () => {
+  it("uses GPT-5.6 Terra as the Codex OAuth default", () => {
+    expect(OPENAI_CODEX_DEFAULT_MODEL).toBe("openai-codex/gpt-5.6-terra");
+  });
+
   it("adds allowlist entry for the default model", () => {
     const next = applyOpenAIProviderConfig({});
     expect(Object.keys(next.agents?.defaults?.models ?? {})).toContain(OPENAI_DEFAULT_MODEL);
