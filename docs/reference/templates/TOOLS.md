@@ -1,47 +1,47 @@
 ---
-title: "TOOLS.md Template"
-summary: "Workspace template for TOOLS.md"
+title: "TOOLS.md 模板"
+summary: "TOOLS.md 的工作区模板"
 read_when:
-  - Bootstrapping a workspace manually
+  - 手动初始化工作区时
 ---
 
-# TOOLS.md - Local Notes
+# TOOLS.md - 本地备注
 
-Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup.
+Skills 定义工具*如何*工作。这个文件用于记录*你的*具体情况，也就是你的环境所独有的信息。
 
-## What Goes Here
+## 应该记录什么
 
-Things like:
+例如：
 
-- Camera names and locations
-- SSH hosts and aliases
-- Preferred voices for TTS
-- Speaker/room names
-- Device nicknames
-- Anything environment-specific
+- 摄像头名称和位置
+- SSH 主机和别名
+- TTS 的首选语音
+- 音箱或房间名称
+- 设备昵称
+- 任何与环境有关的特殊信息
 
-## Examples
+## 示例
 
 ```markdown
-### Cameras
+### 摄像头
 
-- living-room → Main area, 180° wide angle
-- front-door → Entrance, motion-triggered
+- living-room → 主要活动区域，180° 广角
+- front-door → 入口，移动触发
 
 ### SSH
 
-- home-server → 192.168.1.100, user: admin
+- home-server → 192.168.1.100，用户：admin
 
 ### TTS
 
-- Preferred voice: "Nova" (warm, slightly British)
-- Default speaker: Kitchen HomePod
+- 首选语音：“Nova”（温暖，略带英式口音）
+- 默认音箱：厨房 HomePod
 ```
 
-## Why Separate?
+## 为什么要分开记录
 
-Skills are shared. Your setup is yours. Keeping them apart means you can update skills without losing your notes, and share skills without leaking your infrastructure.
+Skills 是共享的，而你的环境配置属于你自己。将两者分开，意味着你可以更新 Skills 而不丢失自己的备注，也可以分享 Skills 而不泄露自己的基础设施信息。
 
 ---
 
-Add whatever helps you do your job. This is your cheat sheet.
+添加任何能帮助你完成工作的内容。这是你的速查表。

@@ -174,19 +174,15 @@ describe("ensureAgentWorkspace", () => {
     expect(persisted).toContain('"setupCompletedAt": "2026-03-15T02:30:00.000Z"');
   });
 
-  it("writes the current fenced HEARTBEAT template body into new workspaces", async () => {
+  it("writes the current localized fenced HEARTBEAT template body into new workspaces", async () => {
     const tempDir = await makeTempWorkspace("openclaw-workspace-");
 
     await ensureAgentWorkspace({ dir: tempDir, ensureBootstrapFiles: true });
 
     const heartbeat = await fs.readFile(path.join(tempDir, DEFAULT_HEARTBEAT_FILENAME), "utf-8");
     expect(heartbeat).toContain("```markdown");
-    expect(heartbeat).toContain(
-      "# Keep this file empty (or with only comments) to skip heartbeat API calls.",
-    );
-    expect(heartbeat).toContain(
-      "# Add tasks below when you want the agent to check something periodically.",
-    );
+    expect(heartbeat).toContain("# 保持此文件为空（或仅包含注释），即可跳过心跳 API 调用。");
+    expect(heartbeat).toContain("# 当你希望 Agent 定期检查某些事项时，请在下方添加任务。");
   });
 });
 
