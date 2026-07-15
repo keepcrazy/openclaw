@@ -375,33 +375,35 @@ describe("installContextEngineLoopHook", () => {
     expect(engine.assemble).toHaveBeenCalledTimes(1);
   });
 
-  it("passes runtimeContext through loop-hook afterTurn calls", async () => {
+  it("passes the same runtimeContext through loop-hook afterTurn and assemble calls", async () => {
     const agent = makeGuardableAgent();
     const engine = makeMockEngine();
-    installHook(agent, engine, 1, () => ({
+    const runtimeContext = {
       provider: "anthropic",
-      modelId: modelId,
+      modelId,
+      senderId: "ou_test_sender",
       promptCache: {
         retention: "short",
         lastCacheTouchAt: 123,
       },
-    }));
+    };
+    const getRuntimeContext = vi.fn(() => runtimeContext);
+    installHook(agent, engine, 1, getRuntimeContext);
 
     const messages = [makeUser("first"), makeToolResult("call_1", "result")];
     await callTransform(agent, messages);
 
+    expect(getRuntimeContext).toHaveBeenCalledTimes(1);
     expect(engine.afterTurn).toHaveBeenCalledTimes(1);
     expect(engine.afterTurn.mock.calls[0]?.[0]).toMatchObject({
       prePromptMessageCount: 1,
-      runtimeContext: {
-        provider: "anthropic",
-        modelId,
-        promptCache: {
-          retention: "short",
-          lastCacheTouchAt: 123,
-        },
-      },
+      runtimeContext,
     });
+    expect(engine.assemble).toHaveBeenCalledTimes(1);
+    expect(engine.assemble.mock.calls[0]?.[0]).toMatchObject({ runtimeContext });
+    expect(engine.assemble.mock.calls[0]?.[0].runtimeContext).toBe(
+      engine.afterTurn.mock.calls[0]?.[0].runtimeContext,
+    );
   });
 
   it("passes loop messages and the prompt fence into the runtimeContext callback", async () => {

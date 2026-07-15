@@ -233,6 +233,10 @@ export function installContextEngineLoopHook(params: {
     }
 
     try {
+      const runtimeContext = params.getRuntimeContext?.({
+        messages: sourceMessages,
+        prePromptMessageCount,
+      });
       if (typeof contextEngine.afterTurn === "function") {
         await contextEngine.afterTurn({
           sessionId,
@@ -241,10 +245,7 @@ export function installContextEngineLoopHook(params: {
           messages: sourceMessages,
           prePromptMessageCount,
           tokenBudget,
-          runtimeContext: params.getRuntimeContext?.({
-            messages: sourceMessages,
-            prePromptMessageCount,
-          }),
+          runtimeContext,
         });
       } else {
         const newMessages = sourceMessages.slice(prePromptMessageCount);
@@ -273,6 +274,7 @@ export function installContextEngineLoopHook(params: {
         messages: sourceMessages,
         tokenBudget,
         model: modelId,
+        runtimeContext,
       });
       if (assembled && Array.isArray(assembled.messages) && assembled.messages !== sourceMessages) {
         lastAssembledView = assembled.messages;
