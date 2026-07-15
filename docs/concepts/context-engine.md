@@ -130,7 +130,14 @@ export default function register(api) {
       return { ingested: true };
     },
 
-    async assemble({ sessionId, messages, tokenBudget, availableTools, citationsMode }) {
+    async assemble({
+      sessionId,
+      messages,
+      tokenBudget,
+      availableTools,
+      citationsMode,
+      runtimeContext,
+    }) {
       // Return messages that fit the budget
       return {
         messages: buildContext(messages, tokenBudget),
@@ -185,6 +192,11 @@ Required members:
   tokens in the assembled context. OpenClaw uses this for compaction threshold
   decisions and diagnostic reporting.
 - `systemPromptAddition` (optional, `string`) — prepended to the system prompt.
+
+For inbound agent turns, `assemble(params)` also receives a best-effort
+`runtimeContext`. Channel-provided caller state, including the trusted
+`runtimeContext.senderId`, is available there when the run originated from an
+identified sender.
 
 Optional members:
 

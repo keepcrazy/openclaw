@@ -1452,6 +1452,7 @@ export async function runEmbeddedAttempt(
               citationsMode: params.config?.memory?.citations,
               modelId: params.modelId,
               ...(params.prompt !== undefined ? { prompt: params.prompt } : {}),
+              runtimeContext: { senderId: params.senderId },
             });
             if (!assembled) {
               throw new Error("context engine assemble returned no result");

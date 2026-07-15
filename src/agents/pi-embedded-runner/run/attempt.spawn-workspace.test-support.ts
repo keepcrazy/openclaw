@@ -861,6 +861,7 @@ export async function createContextEngineAttemptRunner(params: {
       messages: AgentMessage[];
       tokenBudget?: number;
       model?: string;
+      runtimeContext?: Record<string, unknown>;
     }) => Promise<AssembleResult>;
     afterTurn?: (params: {
       sessionId: string;

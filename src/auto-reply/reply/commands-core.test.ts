@@ -85,6 +85,7 @@ describe("emitResetCommandHooks", () => {
       agentId: "navi",
       sessionKey: "agent:navi:main",
       sessionId: "prev-session",
+      senderId: "rai",
       workspaceDir: "/tmp/openclaw-workspace",
     });
   });

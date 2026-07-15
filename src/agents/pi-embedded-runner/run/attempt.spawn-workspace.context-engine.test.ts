@@ -312,6 +312,26 @@ describe("runEmbeddedAttempt context engine sessionKey forwarding", () => {
     );
   });
 
+  it("forwards the inbound sender id to context-engine assemble", async () => {
+    const assemble = vi.fn(async ({ messages }: { messages: AgentMessage[] }) => ({
+      messages,
+      estimatedTokens: 1,
+    }));
+
+    await createContextEngineAttemptRunner({
+      sessionKey,
+      tempPaths,
+      contextEngine: { assemble },
+      attemptOverrides: { senderId: "user-123" },
+    });
+
+    expect(assemble).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeContext: expect.objectContaining({ senderId: "user-123" }),
+      }),
+    );
+  });
+
   it("builds prompt-cache retention, last-call usage, and cache-touch metadata", () => {
     expect(
       buildContextEnginePromptCacheInfo({

@@ -142,6 +142,8 @@ export type PluginHookAgentContext = {
   agentId?: string;
   sessionKey?: string;
   sessionId?: string;
+  /** Trusted sender identifier from the inbound request, when available. */
+  senderId?: string;
   workspaceDir?: string;
   modelProviderId?: string;
   modelId?: string;

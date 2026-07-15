@@ -152,6 +152,7 @@ export async function emitResetCommandHooks(params: {
             agentId: resolveAgentIdFromSessionKey(params.sessionKey),
             sessionKey: params.sessionKey,
             sessionId: prevEntry?.sessionId,
+            senderId: params.command.senderId,
             workspaceDir: params.workspaceDir,
           },
         );

@@ -215,6 +215,7 @@ export async function assembleAttemptContextEngine(params: {
   citationsMode?: MemoryCitationsMode;
   modelId: string;
   prompt?: string;
+  runtimeContext?: ContextEngineRuntimeContext;
 }) {
   if (!params.contextEngine) {
     return undefined;
@@ -228,6 +229,7 @@ export async function assembleAttemptContextEngine(params: {
     ...(params.citationsMode ? { citationsMode: params.citationsMode } : {}),
     model: params.modelId,
     ...(params.prompt !== undefined ? { prompt: params.prompt } : {}),
+    ...(params.runtimeContext ? { runtimeContext: params.runtimeContext } : {}),
   });
 }
 
