@@ -1004,7 +1004,7 @@ export async function handleFeishuMessage(params: {
         ChatType: isGroup ? "group" : "direct",
         GroupSubject: isGroup ? ctx.chatId : undefined,
         SenderName: ctx.senderName ?? ctx.senderOpenId,
-        SenderId: ctx.senderOpenId,
+        SenderId: ctx.senderId,
         Provider: "feishu" as const,
         Surface: "feishu" as const,
         MessageSid: ctx.messageId,

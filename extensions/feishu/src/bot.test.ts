@@ -605,6 +605,40 @@ describe("handleFeishuMessage command authorization", () => {
     expect(mockEnqueueSystemEvent).not.toHaveBeenCalled();
   });
 
+  it("uses tenant user_id as the inbound SenderId when open_id is also present", async () => {
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          dmPolicy: "open",
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-app-scoped",
+          user_id: "tenant-user",
+        },
+      },
+      message: {
+        message_id: "msg-tenant-user-id",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "hello" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockFinalizeInboundContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        SenderId: "tenant-user",
+      }),
+    );
+  });
+
   it("uses authorizer resolution instead of hardcoded CommandAuthorized=true", async () => {
     const cfg: ClawdbotConfig = {
       commands: { useAccessGroups: true },
