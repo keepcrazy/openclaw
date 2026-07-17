@@ -8,8 +8,9 @@ export type FeishuPermissionError = {
   grantUrl?: string;
 };
 
-type SenderNameResult = {
+type SenderLookupResult = {
   name?: string;
+  userId?: string;
   permissionError?: FeishuPermissionError;
 };
 
@@ -25,8 +26,8 @@ const IGNORED_PERMISSION_SCOPE_TOKENS = ["contact:contact.base:readonly"];
 const FEISHU_SCOPE_CORRECTIONS: Record<string, string> = {
   "contact:contact.base:readonly": "contact:user.base:readonly",
 };
-const SENDER_NAME_TTL_MS = 10 * 60 * 1000;
-const senderNameCache = new Map<string, { name: string; expireAt: number }>();
+const SENDER_LOOKUP_TTL_MS = 10 * 60 * 1000;
+const senderLookupCache = new Map<string, { name?: string; userId?: string; expireAt: number }>();
 
 function correctFeishuScopeInUrl(url: string): string {
   let corrected = url;
@@ -75,11 +76,11 @@ function resolveSenderLookupIdType(senderId: string): "open_id" | "user_id" | "u
   return "user_id";
 }
 
-export async function resolveFeishuSenderName(params: {
+export async function resolveFeishuSenderIdentity(params: {
   account: ResolvedFeishuAccount;
   senderId: string;
   log: FeishuLogger;
-}): Promise<SenderNameResult> {
+}): Promise<SenderLookupResult> {
   const { account, senderId, log } = params;
   if (!account.configured) {
     return {};
@@ -90,10 +91,10 @@ export async function resolveFeishuSenderName(params: {
     return {};
   }
 
-  const cached = senderNameCache.get(normalizedSenderId);
+  const cached = senderLookupCache.get(normalizedSenderId);
   const now = Date.now();
   if (cached && cached.expireAt > now) {
-    return { name: cached.name };
+    return { name: cached.name, userId: cached.userId };
   }
 
   try {
@@ -105,10 +106,15 @@ export async function resolveFeishuSenderName(params: {
     });
     const user = res.data?.user;
     const name = user?.name ?? user?.nickname ?? user?.en_name;
+    const userId = user?.user_id?.trim() || undefined;
 
-    if (name) {
-      senderNameCache.set(normalizedSenderId, { name, expireAt: now + SENDER_NAME_TTL_MS });
-      return { name };
+    if (name || userId) {
+      senderLookupCache.set(normalizedSenderId, {
+        name,
+        userId,
+        expireAt: now + SENDER_LOOKUP_TTL_MS,
+      });
+      return { name, userId };
     }
     return {};
   } catch (err) {
@@ -118,10 +124,10 @@ export async function resolveFeishuSenderName(params: {
         log(`feishu: ignoring stale permission scope error: ${permErr.message}`);
         return {};
       }
-      log(`feishu: permission error resolving sender name: code=${permErr.code}`);
+      log(`feishu: permission error resolving sender identity: code=${permErr.code}`);
       return { permissionError: permErr };
     }
-    log(`feishu: failed to resolve sender name for ${normalizedSenderId}: ${String(err)}`);
+    log(`feishu: failed to resolve sender identity for ${normalizedSenderId}: ${String(err)}`);
     return {};
   }
 }

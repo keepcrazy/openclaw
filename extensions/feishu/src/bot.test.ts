@@ -639,6 +639,53 @@ describe("handleFeishuMessage command authorization", () => {
     );
   });
 
+  it("resolves tenant user_id when the inbound event only contains open_id", async () => {
+    mockCreateFeishuClient.mockReturnValue({
+      contact: {
+        user: {
+          get: vi.fn().mockResolvedValue({
+            data: { user: { name: "Sender", user_id: "tenant-user-from-api" } },
+          }),
+        },
+      },
+    });
+
+    const cfg: ClawdbotConfig = {
+      channels: {
+        feishu: {
+          appId: "cli_api_lookup",
+          appSecret: "sec_api_lookup", // pragma: allowlist secret
+          dmPolicy: "open",
+        },
+      },
+    } as ClawdbotConfig;
+
+    const event: FeishuMessageEvent = {
+      sender: {
+        sender_id: {
+          open_id: "ou-api-lookup",
+        },
+      },
+      message: {
+        message_id: "msg-api-user-id",
+        chat_id: "oc-dm",
+        chat_type: "p2p",
+        message_type: "text",
+        content: JSON.stringify({ text: "hello" }),
+      },
+    };
+
+    await dispatchMessage({ cfg, event });
+
+    expect(mockFinalizeInboundContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        From: "feishu:ou-api-lookup",
+        SenderId: "tenant-user-from-api",
+        To: "user:ou-api-lookup",
+      }),
+    );
+  });
+
   it("uses authorizer resolution instead of hardcoded CommandAuthorized=true", async () => {
     const cfg: ClawdbotConfig = {
       commands: { useAccessGroups: true },
@@ -721,10 +768,22 @@ describe("handleFeishuMessage command authorization", () => {
     expect(mockDispatchReplyFromConfig).toHaveBeenCalledTimes(1);
   });
 
-  it("skips sender-name lookup when resolveSenderNames is false", async () => {
+  it("resolves tenant user_id without applying sender name when name lookup is disabled", async () => {
+    mockCreateFeishuClient.mockReturnValue({
+      contact: {
+        user: {
+          get: vi.fn().mockResolvedValue({
+            data: { user: { name: "Ignored Sender", user_id: "tenant-user-without-name" } },
+          }),
+        },
+      },
+    });
+
     const cfg: ClawdbotConfig = {
       channels: {
         feishu: {
+          appId: "cli_identity_only",
+          appSecret: "sec_identity_only", // pragma: allowlist secret
           dmPolicy: "open",
           allowFrom: ["*"],
           resolveSenderNames: false,
@@ -735,7 +794,7 @@ describe("handleFeishuMessage command authorization", () => {
     const event: FeishuMessageEvent = {
       sender: {
         sender_id: {
-          open_id: "ou-attacker",
+          open_id: "ou-identity-only",
         },
       },
       message: {
@@ -749,7 +808,12 @@ describe("handleFeishuMessage command authorization", () => {
 
     await dispatchMessage({ cfg, event });
 
-    expect(mockCreateFeishuClient).not.toHaveBeenCalled();
+    expect(mockFinalizeInboundContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        SenderId: "tenant-user-without-name",
+        SenderName: "ou-identity-only",
+      }),
+    );
   });
 
   it("propagates parent/root message ids into inbound context for reply reconstruction", async () => {

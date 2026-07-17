@@ -39,7 +39,7 @@ import {
   resolveChannelContextVisibilityMode,
 } from "./bot-runtime-api.js";
 import type { ClawdbotConfig, RuntimeEnv } from "./bot-runtime-api.js";
-import { type FeishuPermissionError, resolveFeishuSenderName } from "./bot-sender-name.js";
+import { type FeishuPermissionError, resolveFeishuSenderIdentity } from "./bot-sender-name.js";
 import { createFeishuClient } from "./client.js";
 import { finalizeFeishuMessageProcessing, tryRecordMessagePersistent } from "./dedup.js";
 import { maybeCreateDynamicAgent } from "./dynamic-agent.js";
@@ -338,17 +338,21 @@ export async function handleFeishuMessage(params: {
     }
   }
 
-  // Resolve sender display name (best-effort) so the agent can attribute messages correctly.
-  // Optimization: skip if disabled to save API quota (Feishu free tier limit).
+  // Resolve the tenant user ID when the event omits it, and optionally the display name.
+  // Both values come from the same best-effort contact lookup.
   let permissionErrorForAgent: FeishuPermissionError | undefined;
-  if (feishuCfg?.resolveSenderNames ?? true) {
-    const senderResult = await resolveFeishuSenderName({
+  const shouldResolveSenderName = feishuCfg?.resolveSenderNames ?? true;
+  if (!senderUserId || shouldResolveSenderName) {
+    const senderResult = await resolveFeishuSenderIdentity({
       account,
       senderId: ctx.senderOpenId,
       log,
     });
-    if (senderResult.name) {
+    if (shouldResolveSenderName && senderResult.name) {
       ctx = { ...ctx, senderName: senderResult.name };
+    }
+    if (!senderUserId && senderResult.userId) {
+      ctx = { ...ctx, senderId: senderResult.userId };
     }
 
     // Track permission error to inform agent later (with cooldown to avoid repetition)
