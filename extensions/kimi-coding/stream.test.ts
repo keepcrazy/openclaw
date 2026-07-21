@@ -209,6 +209,163 @@ describe("kimi tool-call markup wrapper", () => {
     });
   });
 
+  it("suppresses tagged tool-call text split across streaming events", async () => {
+    const finalMessage = {
+      role: "assistant",
+      content: [{ type: "text", text: KIMI_TOOL_TEXT }],
+      stopReason: "stop",
+    };
+    const baseStreamFn: StreamFn = () =>
+      createFakeStream({
+        events: [
+          { type: "text_start", contentIndex: 0 },
+          { type: "text_delta", contentIndex: 0, delta: " <|tool_calls_section" },
+          {
+            type: "text_delta",
+            contentIndex: 0,
+            delta: "_begin|> <|tool_call_begin|> functions.read:0 ",
+          },
+          {
+            type: "text_delta",
+            contentIndex: 0,
+            delta: '<|tool_call_argument_begin|> {"file_path":"./package.json"}',
+          },
+          { type: "text_end", contentIndex: 0, content: KIMI_TOOL_TEXT },
+          { type: "message_end", message: finalMessage },
+        ],
+        resultMessage: finalMessage,
+      }) as ReturnType<StreamFn>;
+
+    const wrapped = createKimiToolCallMarkupWrapper(baseStreamFn);
+    const stream = wrapped(
+      { api: "anthropic-messages", provider: "kimi", id: "k2p5" } as Model<"anthropic-messages">,
+      { messages: [] } as Context,
+      {},
+    ) as FakeStream;
+
+    const events: unknown[] = [];
+    for await (const event of stream) {
+      events.push(event);
+    }
+
+    expect(events).toEqual([
+      {
+        type: "message_end",
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              id: "functions.read:0",
+              name: "functions.read",
+              arguments: { file_path: "./package.json" },
+            },
+          ],
+          stopReason: "toolUse",
+        },
+      },
+    ]);
+  });
+
+  it("replays normal text as soon as it cannot be a tagged tool call", async () => {
+    const events = [
+      { type: "text_start", contentIndex: 0 },
+      { type: "text_delta", contentIndex: 0, delta: "Hello" },
+      { type: "text_end", contentIndex: 0, content: "Hello" },
+    ];
+    const baseStreamFn: StreamFn = () =>
+      createFakeStream({
+        events,
+        resultMessage: { role: "assistant", content: [{ type: "text", text: "Hello" }] },
+      }) as ReturnType<StreamFn>;
+
+    const wrapped = createKimiToolCallMarkupWrapper(baseStreamFn);
+    const stream = wrapped(
+      { api: "anthropic-messages", provider: "kimi", id: "k2p5" } as Model<"anthropic-messages">,
+      { messages: [] } as Context,
+      {},
+    ) as FakeStream;
+
+    const received: unknown[] = [];
+    for await (const event of stream) {
+      received.push(event);
+    }
+    expect(received).toEqual(events);
+  });
+
+  it("suppresses every stream event for multiple tagged tool calls", async () => {
+    const finalMessage = {
+      role: "assistant",
+      content: [{ type: "text", text: KIMI_MULTI_TOOL_TEXT }],
+      stopReason: "stop",
+    };
+    const baseStreamFn: StreamFn = () =>
+      createFakeStream({
+        events: [
+          { type: "text_start", contentIndex: 2 },
+          { type: "text_delta", contentIndex: 2, delta: KIMI_MULTI_TOOL_TEXT },
+          { type: "text_end", contentIndex: 2, content: KIMI_MULTI_TOOL_TEXT },
+          { type: "message_end", message: finalMessage },
+        ],
+        resultMessage: finalMessage,
+      }) as ReturnType<StreamFn>;
+
+    const wrapped = createKimiToolCallMarkupWrapper(baseStreamFn);
+    const stream = wrapped(
+      { api: "anthropic-messages", provider: "kimi", id: "k2p5" } as Model<"anthropic-messages">,
+      { messages: [] } as Context,
+      {},
+    ) as FakeStream;
+
+    const received: unknown[] = [];
+    for await (const event of stream) {
+      received.push(event);
+    }
+    expect(received).toHaveLength(1);
+    expect(JSON.stringify(received)).not.toContain("<|tool_call");
+  });
+
+  it("does not leak a marker split before the argument marker", async () => {
+    const finalMessage = {
+      role: "assistant",
+      content: [{ type: "text", text: KIMI_TOOL_TEXT }],
+      stopReason: "stop",
+    };
+    const baseStreamFn: StreamFn = () =>
+      createFakeStream({
+        events: [
+          { type: "text_start", contentIndex: 0 },
+          { type: "text_delta", contentIndex: 0, delta: " <|tool_calls_section_begin|>" },
+          {
+            type: "text_delta",
+            contentIndex: 0,
+            delta: " <|tool_call_begin|> functions.read:0 <|tool_call_arg",
+          },
+          {
+            type: "text_delta",
+            contentIndex: 0,
+            delta:
+              'ument_begin|> {"file_path":"./package.json"} <|tool_call_end|> <|tool_calls_section_end|>',
+          },
+          { type: "text_end", contentIndex: 0, content: KIMI_TOOL_TEXT },
+        ],
+        resultMessage: finalMessage,
+      }) as ReturnType<StreamFn>;
+
+    const wrapped = createKimiToolCallMarkupWrapper(baseStreamFn);
+    const stream = wrapped(
+      { api: "anthropic-messages", provider: "kimi", id: "k2p5" } as Model<"anthropic-messages">,
+      { messages: [] } as Context,
+      {},
+    ) as FakeStream;
+
+    const received: unknown[] = [];
+    for await (const event of stream) {
+      received.push(event);
+    }
+    expect(received).toEqual([]);
+  });
+
   it("adapts provider stream context without changing wrapper behavior", async () => {
     const finalMessage = {
       role: "assistant",

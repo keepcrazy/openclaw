@@ -1,5 +1,5 @@
 import type { StreamFn } from "@mariozechner/pi-agent-core";
-import { streamSimple } from "@mariozechner/pi-ai";
+import { streamSimple, type AssistantMessageEvent } from "@mariozechner/pi-ai";
 import type { ProviderWrapStreamFnContext } from "openclaw/plugin-sdk/plugin-entry";
 
 const TOOL_CALLS_SECTION_BEGIN = "<|tool_calls_section_begin|>";
@@ -131,6 +131,25 @@ function rewriteKimiTaggedToolCallsInMessage(message: unknown): void {
   }
 }
 
+type BufferedTextEvents = {
+  events: AssistantMessageEvent[];
+  text: string;
+};
+
+function textContentIndex(event: { contentIndex?: unknown }): number {
+  return typeof event.contentIndex === "number" && Number.isInteger(event.contentIndex)
+    ? event.contentIndex
+    : -1;
+}
+
+function couldBeKimiTaggedToolCall(text: string): boolean {
+  const trimmedStart = text.trimStart();
+  return (
+    TOOL_CALLS_SECTION_BEGIN.startsWith(trimmedStart) ||
+    trimmedStart.startsWith(TOOL_CALLS_SECTION_BEGIN)
+  );
+}
+
 function wrapKimiTaggedToolCalls(
   stream: ReturnType<typeof streamSimple>,
 ): ReturnType<typeof streamSimple> {
@@ -145,26 +164,76 @@ function wrapKimiTaggedToolCalls(
   (stream as { [Symbol.asyncIterator]: typeof originalAsyncIterator })[Symbol.asyncIterator] =
     function () {
       const iterator = originalAsyncIterator();
-      return {
-        async next() {
+      const bufferedTextEvents = new Map<number, BufferedTextEvents>();
+
+      async function* wrappedIterator(): AsyncGenerator<AssistantMessageEvent> {
+        while (true) {
           const result = await iterator.next();
-          if (!result.done && result.value && typeof result.value === "object") {
-            const event = result.value as {
-              partial?: unknown;
-              message?: unknown;
-            };
-            rewriteKimiTaggedToolCallsInMessage(event.partial);
-            rewriteKimiTaggedToolCallsInMessage(event.message);
+          if (result.done) {
+            return;
           }
-          return result;
-        },
-        async return(value?: unknown) {
-          return iterator.return?.(value) ?? { done: true as const, value: undefined };
-        },
-        async throw(error?: unknown) {
-          return iterator.throw?.(error) ?? { done: true as const, value: undefined };
-        },
-      };
+
+          const event = result.value;
+          if (!event || typeof event !== "object") {
+            yield event;
+            continue;
+          }
+
+          const typedEvent = event as {
+            type?: unknown;
+            contentIndex?: unknown;
+            delta?: unknown;
+            content?: unknown;
+            partial?: unknown;
+            message?: unknown;
+          };
+          rewriteKimiTaggedToolCallsInMessage(typedEvent.partial);
+          rewriteKimiTaggedToolCallsInMessage(typedEvent.message);
+
+          const eventType = typedEvent.type;
+          if (eventType === "text_start") {
+            bufferedTextEvents.set(textContentIndex(typedEvent), { events: [event], text: "" });
+            continue;
+          }
+
+          if (eventType === "text_delta" && typeof typedEvent.delta === "string") {
+            const contentIndex = textContentIndex(typedEvent);
+            const buffered = bufferedTextEvents.get(contentIndex) ?? { events: [], text: "" };
+            buffered.events.push(event);
+            buffered.text += typedEvent.delta;
+
+            if (couldBeKimiTaggedToolCall(buffered.text)) {
+              bufferedTextEvents.set(contentIndex, buffered);
+              continue;
+            }
+
+            bufferedTextEvents.delete(contentIndex);
+            yield* buffered.events;
+            continue;
+          }
+
+          if (eventType === "text_end") {
+            const contentIndex = textContentIndex(typedEvent);
+            const buffered = bufferedTextEvents.get(contentIndex);
+            const text =
+              typeof typedEvent.content === "string" ? typedEvent.content : buffered?.text;
+            bufferedTextEvents.delete(contentIndex);
+
+            if (typeof text === "string" && parseKimiTaggedToolCalls(text)) {
+              continue;
+            }
+            if (buffered) {
+              yield* buffered.events;
+            }
+            yield event;
+            continue;
+          }
+
+          yield event;
+        }
+      }
+
+      return wrappedIterator();
     };
 
   return stream;
