@@ -1280,8 +1280,9 @@ describe("runHeartbeatOnce", () => {
 
   async function runHeartbeatFileScenario(params: {
     fileState: HeartbeatFileState;
-    reason?: "interval" | "wake";
+    reason?: "interval" | "wake" | `hook:${string}`;
     queueCronEvent?: boolean;
+    queueHookEvent?: boolean;
     replyText?: string;
   }) {
     const tmpDir = await createCaseDir("openclaw-hb");
@@ -1369,6 +1370,12 @@ describe("runHeartbeatOnce", () => {
         contextKey: "cron:qmd-maintenance",
       });
     }
+    if (params.queueHookEvent) {
+      enqueueSystemEvent('[lark-speecher] {"action":"select_voice","voiceId":"vivian"}', {
+        sessionKey,
+        contextKey: "lark-speecher:voice-select",
+      });
+    }
 
     const replySpy = vi.fn();
     replySpy.mockResolvedValue({ text: params.replyText ?? "Checked logs and PRs" });
@@ -1399,6 +1406,31 @@ describe("runHeartbeatOnce", () => {
       const expectedPath = path.join(workspaceDir, "HEARTBEAT.md").replace(/\\/g, "/");
       expect(calledCtx.Body).toContain(`use workspace file ${expectedPath} (exact case)`);
       expect(calledCtx.Body).toContain("Do not read docs/heartbeat.md.");
+    } finally {
+      replySpy.mockRestore();
+    }
+  });
+
+  it("uses an event-specific prompt for hook wakes with queued integration events", async () => {
+    const { res, replySpy, sendWhatsApp } = await runHeartbeatFileScenario({
+      fileState: "empty",
+      reason: "hook:lark-speecher:voice-select",
+      queueHookEvent: true,
+      replyText: "音色已切换为 Vivian。",
+    });
+    try {
+      expect(res.status).toBe("ran");
+      expect(sendWhatsApp).toHaveBeenCalledWith(
+        "120363401234567890@g.us",
+        "音色已切换为 Vivian。",
+        expect.anything(),
+      );
+      const calledCtx = replySpy.mock.calls[0]?.[0] as { Body?: string };
+      expect(calledCtx.Body).toContain("This is not a periodic heartbeat");
+      expect(calledCtx.Body).toContain(
+        '[lark-speecher] {"action":"select_voice","voiceId":"vivian"}',
+      );
+      expect(calledCtx.Body).toContain("Do not reply HEARTBEAT_OK");
     } finally {
       replySpy.mockRestore();
     }

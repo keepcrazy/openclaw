@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCronEventPrompt,
   buildExecEventPrompt,
+  buildHookEventPrompt,
   isCronSystemEvent,
   isExecCompletionEvent,
 } from "./heartbeat-events-filter.js";
@@ -65,6 +66,23 @@ describe("heartbeat event prompts", () => {
     for (const part of unexpected) {
       expect(prompt).not.toContain(part);
     }
+  });
+
+  it("builds a user-relay hook prompt that cannot be confused with a heartbeat", () => {
+    const prompt = buildHookEventPrompt(['[lark-speecher] {"action":"select_voice"}']);
+
+    expect(prompt).toContain("This is not a periodic heartbeat");
+    expect(prompt).toContain('[lark-speecher] {"action":"select_voice"}');
+    expect(prompt).toContain("Do not reply HEARTBEAT_OK");
+    expect(prompt).toContain("give the user a concise, helpful result");
+  });
+
+  it("builds an internal-only hook prompt when delivery is disabled", () => {
+    const prompt = buildHookEventPrompt(["integration payload"], { deliverToUser: false });
+
+    expect(prompt).toContain("This is not a periodic heartbeat");
+    expect(prompt).toContain("Handle the event internally");
+    expect(prompt).not.toContain("give the user a concise, helpful result");
   });
 });
 

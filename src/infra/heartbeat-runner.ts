@@ -65,6 +65,7 @@ import { isWithinActiveHours } from "./heartbeat-active-hours.js";
 import {
   buildExecEventPrompt,
   buildCronEventPrompt,
+  buildHookEventPrompt,
   isCronSystemEvent,
   isExecCompletionEvent,
 } from "./heartbeat-events-filter.js";
@@ -493,6 +494,7 @@ function normalizeHeartbeatReply(
 type HeartbeatReasonFlags = {
   isExecEventReason: boolean;
   isCronEventReason: boolean;
+  isHookEventReason: boolean;
   isWakeReason: boolean;
 };
 
@@ -514,6 +516,7 @@ function resolveHeartbeatReasonFlags(reason?: string): HeartbeatReasonFlags {
   return {
     isExecEventReason: reasonKind === "exec-event",
     isCronEventReason: reasonKind === "cron",
+    isHookEventReason: reasonKind === "hook",
     isWakeReason: reasonKind === "wake" || reasonKind === "hook",
   };
 }
@@ -648,11 +651,20 @@ function resolveHeartbeatRunPrompt(params: {
         isCronSystemEvent(event.text),
     )
     .map((event) => event.text);
+  const hookEvents = params.preflight.isHookEventReason ? pendingEvents : [];
   const hasExecCompletion = pendingEvents.some(isExecCompletionEvent);
   const hasCronEvents = cronEvents.length > 0;
+  const hasHookEvents = hookEvents.length > 0;
 
-  // If tasks are defined, build a batched prompt with due tasks
-  if (params.preflight.tasks && params.preflight.tasks.length > 0) {
+  // Event-driven runs must take priority over scheduled HEARTBEAT.md tasks.
+  // A hook callback is a direct action, not a periodic maintenance request.
+  if (
+    !hasExecCompletion &&
+    !hasCronEvents &&
+    !hasHookEvents &&
+    params.preflight.tasks &&
+    params.preflight.tasks.length > 0
+  ) {
     const tasks = params.preflight.tasks;
     const dueTasks = tasks.filter((task) =>
       isTaskDue(
@@ -690,7 +702,9 @@ After completing all due tasks, reply HEARTBEAT_OK.`;
     ? buildExecEventPrompt({ deliverToUser: params.canRelayToUser })
     : hasCronEvents
       ? buildCronEventPrompt(cronEvents, { deliverToUser: params.canRelayToUser })
-      : resolveHeartbeatPrompt(params.cfg, params.heartbeat);
+      : hasHookEvents
+        ? buildHookEventPrompt(hookEvents, { deliverToUser: params.canRelayToUser })
+        : resolveHeartbeatPrompt(params.cfg, params.heartbeat);
   const prompt = appendHeartbeatWorkspacePathHint(basePrompt, params.workspaceDir);
 
   return { prompt, hasExecCompletion, hasCronEvents };

@@ -53,6 +53,36 @@ export function buildExecEventPrompt(opts?: { deliverToUser?: boolean }): string
   );
 }
 
+// Hook-triggered runs carry an integration event, not a periodic heartbeat.
+// Embed the event content in the turn prompt so the model can reliably
+// distinguish a user action (for example, an interactive-card callback) from
+// the regular HEARTBEAT.md maintenance flow.
+export function buildHookEventPrompt(
+  pendingEvents: string[],
+  opts?: { deliverToUser?: boolean },
+): string {
+  const deliverToUser = opts?.deliverToUser ?? true;
+  const eventText = pendingEvents.join("\n").trim();
+  if (!eventText) {
+    return "An external integration wake was triggered, but no event content was found. Reply HEARTBEAT_OK.";
+  }
+  if (!deliverToUser) {
+    return (
+      "An external integration event requires handling now. This is not a periodic heartbeat. " +
+      "The event payload is shown below:\n\n" +
+      eventText +
+      "\n\nHandle the event internally. Do not relay it to the user unless explicitly requested."
+    );
+  }
+  return (
+    "An external integration event requires handling now. This is not a periodic heartbeat. " +
+    "The event payload is shown below:\n\n" +
+    eventText +
+    "\n\nProcess the event and give the user a concise, helpful result. " +
+    "Do not reply HEARTBEAT_OK, because that acknowledgement token suppresses the user-visible response."
+  );
+}
+
 const HEARTBEAT_OK_PREFIX = normalizeLowercaseStringOrEmpty(HEARTBEAT_TOKEN);
 
 // Detect heartbeat-specific noise so cron reminders don't trigger on non-reminder events.
