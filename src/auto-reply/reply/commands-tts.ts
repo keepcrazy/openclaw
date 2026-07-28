@@ -8,6 +8,7 @@ import {
   getSpeechProvider,
   listSpeechProviders,
 } from "../../tts/provider-registry.js";
+import type { SpeechRequestContext } from "../../tts/provider-types.js";
 import {
   getResolvedSpeechProviderConfig,
   getLastTtsAttempt,
@@ -143,12 +144,23 @@ export const handleTtsCommands: CommandHandler = async (params, allowTextCommand
       };
     }
 
+    const requesterSenderId = params.ctx?.SenderId?.trim() || params.command.senderId?.trim();
+    const agentId = params.agentId?.trim();
+    const requestContext: SpeechRequestContext | undefined =
+      requesterSenderId && agentId
+        ? {
+            requesterSenderId,
+            agentId,
+            senderIsOwner: params.command.senderIsOwner,
+          }
+        : undefined;
     const start = Date.now();
     const result = await textToSpeech({
       text: args,
       cfg: params.cfg,
       channel: params.command.channel,
       prefsPath,
+      requestContext,
     });
 
     if (result.success && result.audioPath) {

@@ -41,4 +41,18 @@ describe("createTtsTool", () => {
     });
     expect(JSON.stringify(result.content)).not.toContain("MEDIA:");
   });
+
+  it("forwards trusted runtime context to TTS", async () => {
+    textToSpeechSpy.mockResolvedValue({ success: false, error: "expected" });
+    const requestContext = {
+      requesterSenderId: "tenant-user",
+      agentId: "research",
+      senderIsOwner: true,
+    };
+
+    const tool = createTtsTool({ requestContext });
+    await tool.execute("call-1", { text: "hello" });
+
+    expect(textToSpeechSpy).toHaveBeenCalledWith(expect.objectContaining({ requestContext }));
+  });
 });

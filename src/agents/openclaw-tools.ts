@@ -134,6 +134,15 @@ export function createOpenClawTools(
     accountId: options?.agentAccountId,
     threadId: options?.agentThreadId,
   });
+  const requesterSenderId = options?.requesterSenderId?.trim();
+  const requestContext =
+    requesterSenderId && typeof options?.senderIsOwner === "boolean"
+      ? {
+          requesterSenderId,
+          agentId: sessionAgentId,
+          senderIsOwner: options.senderIsOwner,
+        }
+      : undefined;
   const runtimeWebTools = getActiveRuntimeWebToolsMetadata();
   const sandbox =
     options?.sandboxRoot && options?.sandboxFsBridge
@@ -237,6 +246,7 @@ export function createOpenClawTools(
     createTtsTool({
       agentChannel: options?.agentChannel,
       config: options?.config,
+      requestContext,
     }),
     ...collectPresentOpenClawTools([imageGenerateTool, musicGenerateTool, videoGenerateTool]),
     createGatewayTool({

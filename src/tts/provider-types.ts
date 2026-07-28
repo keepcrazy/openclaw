@@ -9,6 +9,13 @@ export type SpeechProviderConfig = Record<string, unknown>;
 
 export type SpeechProviderOverrides = Record<string, unknown>;
 
+/** Trusted runtime identity for speech requests. Never derive these fields from model input. */
+export type SpeechRequestContext = {
+  requesterSenderId: string;
+  agentId: string;
+  senderIsOwner: boolean;
+};
+
 export type SpeechModelOverridePolicy = {
   enabled: boolean;
   allowText: boolean;
@@ -46,6 +53,7 @@ export type SpeechSynthesisRequest = {
   providerConfig: SpeechProviderConfig;
   target: SpeechSynthesisTarget;
   providerOverrides?: SpeechProviderOverrides;
+  requestContext?: SpeechRequestContext;
   timeoutMs: number;
 };
 

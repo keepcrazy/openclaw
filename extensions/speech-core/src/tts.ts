@@ -46,6 +46,7 @@ import {
   summarizeText,
   type SpeechProviderConfig,
   type SpeechProviderOverrides,
+  type SpeechRequestContext,
   type SpeechVoiceOption,
   type TtsDirectiveOverrides,
   type TtsDirectiveParseResult,
@@ -752,6 +753,7 @@ export async function textToSpeech(params: {
   prefsPath?: string;
   channel?: string;
   overrides?: TtsDirectiveOverrides;
+  requestContext?: SpeechRequestContext;
   disableFallback?: boolean;
 }): Promise<TtsResult> {
   const synthesis = await synthesizeSpeech(params);
@@ -790,6 +792,7 @@ export async function synthesizeSpeech(params: {
   prefsPath?: string;
   channel?: string;
   overrides?: TtsDirectiveOverrides;
+  requestContext?: SpeechRequestContext;
   disableFallback?: boolean;
 }): Promise<TtsSynthesisResult> {
   const setup = resolveTtsRequestSetup({
@@ -840,6 +843,7 @@ export async function synthesizeSpeech(params: {
         providerConfig: resolvedProvider.providerConfig,
         target,
         providerOverrides: params.overrides?.providerOverrides?.[resolvedProvider.provider.id],
+        ...(params.requestContext ? { requestContext: params.requestContext } : {}),
         timeoutMs: config.timeoutMs,
       });
       const latencyMs = Date.now() - providerStart;
@@ -1024,6 +1028,7 @@ export async function maybeApplyTtsToPayload(params: {
   kind?: "tool" | "block" | "final";
   inboundAudio?: boolean;
   ttsAuto?: string;
+  requestContext?: SpeechRequestContext;
 }): Promise<ReplyPayload> {
   if (params.payload.isCompactionNotice) {
     return params.payload;
@@ -1143,6 +1148,7 @@ export async function maybeApplyTtsToPayload(params: {
     prefsPath,
     channel: params.channel,
     overrides: directives.overrides,
+    requestContext: params.requestContext,
   });
 
   if (result.success && result.audioPath) {

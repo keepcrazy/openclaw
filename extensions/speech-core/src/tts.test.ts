@@ -109,6 +109,32 @@ describe("speech-core native voice-note routing", () => {
     }
   });
 
+  it("forwards trusted request context from auto TTS to the speech provider", async () => {
+    const cfg = createTtsConfig("openclaw-speech-core-request-context-test");
+    const requestContext = {
+      requesterSenderId: "tenant-user",
+      agentId: "research",
+      senderIsOwner: true,
+    };
+    let mediaDir: string | undefined;
+    try {
+      const result = await maybeApplyTtsToPayload({
+        payload: { text: "This reply should carry trusted speech request context." },
+        cfg,
+        channel: "discord",
+        kind: "final",
+        requestContext,
+      });
+
+      expect(synthesizeMock).toHaveBeenCalledWith(expect.objectContaining({ requestContext }));
+      mediaDir = result.mediaUrl ? path.dirname(result.mediaUrl) : undefined;
+    } finally {
+      if (mediaDir) {
+        rmSync(mediaDir, { recursive: true, force: true });
+      }
+    }
+  });
+
   it("keeps non-native voice-note channels as regular audio files", async () => {
     const cfg = createTtsConfig("openclaw-speech-core-tts-slack-test");
     const payload: ReplyPayload = {

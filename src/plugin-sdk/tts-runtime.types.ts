@@ -3,6 +3,7 @@ import type { OpenClawConfig } from "../config/types.openclaw.js";
 import type { TtsAutoMode, TtsProvider } from "../config/types.tts.js";
 import type {
   SpeechProviderConfig,
+  SpeechRequestContext,
   SpeechVoiceOption,
   TtsDirectiveOverrides,
   TtsDirectiveParseResult,
@@ -68,6 +69,7 @@ export type TtsRequestParams = {
   prefsPath?: string;
   channel?: string;
   overrides?: TtsDirectiveOverrides;
+  requestContext?: SpeechRequestContext;
   disableFallback?: boolean;
 };
 
@@ -92,6 +94,7 @@ export type MaybeApplyTtsToPayloadParams = {
   kind?: "tool" | "block" | "final";
   inboundAudio?: boolean;
   ttsAuto?: string;
+  requestContext?: SpeechRequestContext;
 };
 
 export type TtsTestFacade = {

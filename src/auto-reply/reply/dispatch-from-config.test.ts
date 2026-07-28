@@ -679,6 +679,37 @@ describe("dispatchReplyFromConfig", () => {
     expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
   });
 
+  it("forwards resolved trusted context to automatic TTS", async () => {
+    setNoAbort();
+    const dispatcher = createDispatcher();
+    const ctx = buildTestCtx({
+      Provider: "discord",
+      Surface: "discord",
+      SenderId: "tenant-user",
+      SessionKey: "agent:research:discord:direct:tenant-user",
+    });
+    const replyResolver = async () => ({
+      text: "This automatic TTS reply carries trusted request context.",
+    });
+
+    await dispatchReplyFromConfig({
+      ctx,
+      cfg: { commands: { ownerAllowFrom: ["tenant-user"] } } as OpenClawConfig,
+      dispatcher,
+      replyResolver,
+    });
+
+    expect(ttsMocks.maybeApplyTtsToPayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestContext: {
+          requesterSenderId: "tenant-user",
+          agentId: "research",
+          senderIsOwner: true,
+        },
+      }),
+    );
+  });
+
   it("routes when OriginatingChannel differs from Provider", async () => {
     setNoAbort();
     mocks.routeReply.mockClear();

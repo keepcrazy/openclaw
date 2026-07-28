@@ -45,8 +45,10 @@ function buildTtsParams(
       commandBodyNormalized,
       isAuthorizedSender: true,
       senderId: "owner",
+      senderIsOwner: true,
       channel: "telegram",
     },
+    agentId: "research",
   } as unknown as Parameters<typeof handleTtsCommands>[0];
 }
 
@@ -164,6 +166,15 @@ describe("handleTtsCommands status fallback reporting", () => {
     const audioResult = await handleTtsCommands(buildTtsParams("/tts audio hello world"), true);
     expect(audioResult?.shouldContinue).toBe(false);
     expect(audioResult?.reply?.mediaUrl).toBe("/tmp/fallback.ogg");
+    expect(ttsMocks.textToSpeech).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestContext: {
+          requesterSenderId: "owner",
+          agentId: "research",
+          senderIsOwner: true,
+        },
+      }),
+    );
 
     const statusResult = await handleTtsCommands(buildTtsParams("/tts status"), true);
     expect(statusResult?.shouldContinue).toBe(false);

@@ -15,6 +15,7 @@ export type {
   SpeechModelOverridePolicy,
   SpeechProviderConfig,
   SpeechProviderConfiguredContext,
+  SpeechRequestContext,
   SpeechProviderResolveConfigContext,
   SpeechProviderResolveTalkConfigContext,
   SpeechProviderResolveTalkOverridesContext,

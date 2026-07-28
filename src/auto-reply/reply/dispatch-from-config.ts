@@ -46,12 +46,14 @@ import {
   normalizeOptionalLowercaseString,
   normalizeOptionalString,
 } from "../../shared/string-coerce.js";
+import type { SpeechRequestContext } from "../../tts/provider-types.js";
 import {
   normalizeTtsAutoMode,
   resolveConfiguredTtsMode,
   shouldAttemptTtsPayload,
 } from "../../tts/tts-config.js";
 import { INTERNAL_MESSAGE_CHANNEL, normalizeMessageChannel } from "../../utils/message-channel.js";
+import { resolveCommandAuthorization } from "../command-auth.js";
 import type { BlockReplyContext } from "../get-reply-options.types.js";
 import { getReplyPayloadMetadata, type ReplyPayload } from "../reply-payload.js";
 import type { FinalizedMsgContext } from "../templating.js";
@@ -107,12 +109,16 @@ function loadReplyMediaPathsRuntime() {
 
 async function maybeApplyTtsToReplyPayload(
   params: Parameters<Awaited<ReturnType<typeof loadTtsRuntime>>["maybeApplyTtsToPayload"]>[0],
+  resolveRequestContext?: () => SpeechRequestContext | undefined,
 ) {
   if (!shouldAttemptTtsPayload({ cfg: params.cfg, ttsAuto: params.ttsAuto })) {
     return params.payload;
   }
   const { maybeApplyTtsToPayload } = await loadTtsRuntime();
-  return maybeApplyTtsToPayload(params);
+  return maybeApplyTtsToPayload({
+    ...params,
+    requestContext: params.requestContext ?? resolveRequestContext?.(),
+  });
 }
 
 const AUDIO_PLACEHOLDER_RE = /^<media:audio>(\s*\([^)]*\))?$/i;
@@ -295,6 +301,30 @@ export async function dispatchReplyFromConfig(
     ctx.MessageThreadId ?? parseSessionThreadInfoFast(acpDispatchSessionKey).threadId;
   const inboundAudio = isInboundAudioContext(ctx);
   const sessionTtsAuto = normalizeTtsAutoMode(sessionStoreEntry.entry?.ttsAuto);
+  let ttsRequestContext: SpeechRequestContext | undefined;
+  let didResolveTtsRequestContext = false;
+  const resolveTtsRequestContext = () => {
+    if (didResolveTtsRequestContext) {
+      return ttsRequestContext;
+    }
+    didResolveTtsRequestContext = true;
+    const requesterSenderId = ctx.SenderId?.trim();
+    if (!requesterSenderId) {
+      return undefined;
+    }
+    ttsRequestContext = {
+      requesterSenderId,
+      agentId: sessionAgentId,
+      senderIsOwner: resolveCommandAuthorization({
+        ctx,
+        cfg,
+        commandAuthorized: ctx.CommandAuthorized,
+      }).senderIsOwner,
+    };
+    return ttsRequestContext;
+  };
+  const applyTtsToReplyPayload = (ttsParams: Parameters<typeof maybeApplyTtsToReplyPayload>[0]) =>
+    maybeApplyTtsToReplyPayload(ttsParams, resolveTtsRequestContext);
   const hookRunner = getGlobalHookRunner();
 
   // Extract message context for hooks (plugin and internal)
@@ -634,7 +664,7 @@ export async function dispatchReplyFromConfig(
     const sendFinalPayload = async (
       payload: ReplyPayload,
     ): Promise<{ queuedFinal: boolean; routedFinalCount: number }> => {
-      const ttsPayload = await maybeApplyTtsToReplyPayload({
+      const ttsPayload = await applyTtsToReplyPayload({
         payload,
         cfg,
         channel: ttsChannel,
@@ -893,7 +923,7 @@ export async function dispatchReplyFromConfig(
             if (suppressDelivery) {
               return;
             }
-            const ttsPayload = await maybeApplyTtsToReplyPayload({
+            const ttsPayload = await applyTtsToReplyPayload({
               payload,
               cfg,
               channel: ttsChannel,
@@ -973,7 +1003,7 @@ export async function dispatchReplyFromConfig(
                   }
                 : context;
             await params.replyOptions?.onBlockReplyQueued?.(payload, queuedContext);
-            const ttsPayload = await maybeApplyTtsToReplyPayload({
+            const ttsPayload = await applyTtsToReplyPayload({
               payload,
               cfg,
               channel: ttsChannel,
@@ -1060,7 +1090,7 @@ export async function dispatchReplyFromConfig(
         accumulatedBlockText.trim()
       ) {
         try {
-          const ttsSyntheticReply = await maybeApplyTtsToReplyPayload({
+          const ttsSyntheticReply = await applyTtsToReplyPayload({
             payload: { text: accumulatedBlockText },
             cfg,
             channel: ttsChannel,
