@@ -3033,6 +3033,81 @@ describe("before_dispatch hook", () => {
     expect(result.queuedFinal).toBe(true);
   });
 
+  it("forwards before_dispatch payload results unchanged", async () => {
+    const payload = {
+      channelData: {
+        feishu: {
+          card: {
+            type: "template",
+            data: { template_id: "status-panel" },
+          },
+        },
+      },
+    } satisfies ReplyPayload;
+    hookMocks.runner.runBeforeDispatch.mockResolvedValue({ handled: true, payload });
+    const dispatcher = createDispatcher();
+
+    const result = await dispatchReplyFromConfig({
+      ctx: createHookCtx(),
+      cfg: emptyConfig,
+      dispatcher,
+    });
+
+    expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
+    expect(dispatcher.sendFinalReply).toHaveBeenCalledWith(payload);
+    expect(result.queuedFinal).toBe(true);
+  });
+
+  it("uses before_dispatch payload instead of duplicate text fallback", async () => {
+    const payload = {
+      channelData: {
+        feishu: {
+          card: { type: "interactive", elements: [] },
+        },
+      },
+    } satisfies ReplyPayload;
+    hookMocks.runner.runBeforeDispatch.mockResolvedValue({
+      handled: true,
+      text: "fallback text",
+      payload,
+    });
+    const dispatcher = createDispatcher();
+
+    await dispatchReplyFromConfig({
+      ctx: createHookCtx(),
+      cfg: emptyConfig,
+      dispatcher,
+    });
+
+    expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
+    expect(dispatcher.sendFinalReply).toHaveBeenCalledWith(payload);
+    expect(dispatcher.sendFinalReply).not.toHaveBeenCalledWith({ text: "fallback text" });
+  });
+
+  it("preserves before_dispatch reply metadata and channel data", async () => {
+    const payload = {
+      text: "threaded reply",
+      replyToId: "message-1",
+      replyToTag: true,
+      channelData: {
+        feishu: {
+          card: { type: "interactive", elements: [] },
+        },
+      },
+    } satisfies ReplyPayload;
+    hookMocks.runner.runBeforeDispatch.mockResolvedValue({ handled: true, payload });
+    const dispatcher = createDispatcher();
+
+    await dispatchReplyFromConfig({
+      ctx: createHookCtx(),
+      cfg: emptyConfig,
+      dispatcher,
+    });
+
+    expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
+    expect(dispatcher.sendFinalReply).toHaveBeenCalledWith(payload);
+  });
+
   it("silently short-circuits when hook returns handled without text", async () => {
     hookMocks.runner.runBeforeDispatch.mockResolvedValue({ handled: true });
     const dispatcher = createDispatcher();
@@ -3095,14 +3170,23 @@ describe("before_dispatch hook", () => {
     expect(result.queuedFinal).toBe(true);
   });
 
-  it("suppresses before_dispatch handled reply when sendPolicy is deny", async () => {
+  it("suppresses before_dispatch handled payload when sendPolicy is deny", async () => {
     setNoAbort();
     sessionStoreMocks.currentEntry = {
       sessionId: "s1",
       updatedAt: 0,
       sendPolicy: "deny",
     };
-    hookMocks.runner.runBeforeDispatch.mockResolvedValue({ handled: true, text: "Blocked" });
+    hookMocks.runner.runBeforeDispatch.mockResolvedValue({
+      handled: true,
+      payload: {
+        channelData: {
+          feishu: {
+            card: { type: "interactive", elements: [] },
+          },
+        },
+      },
+    });
     const dispatcher = createDispatcher();
     const result = await dispatchReplyFromConfig({
       ctx: createHookCtx({ SessionKey: "test:session" }),

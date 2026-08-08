@@ -242,6 +242,7 @@ export type PluginHookBeforeDispatchContext = {
 export type PluginHookBeforeDispatchResult = {
   handled: boolean;
   text?: string;
+  payload?: ReplyPayload;
 };
 
 export type PluginHookReplyDispatchEvent = {

@@ -712,11 +712,12 @@ export async function dispatchReplyFromConfig(
         },
       );
       if (beforeDispatchResult?.handled) {
+        const payload = beforeDispatchResult.payload;
         const text = beforeDispatchResult.text;
         let queuedFinal = false;
         let routedFinalCount = 0;
-        if (text && !suppressDelivery) {
-          const handledReply = await sendFinalPayload({ text });
+        if (!suppressDelivery && (payload || text)) {
+          const handledReply = await sendFinalPayload(payload ?? { text });
           queuedFinal = handledReply.queuedFinal;
           routedFinalCount += handledReply.routedFinalCount;
         }
